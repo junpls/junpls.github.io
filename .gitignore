@@ -1,0 +1,11 @@
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+
+# Editor and temporary files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.af~lock~

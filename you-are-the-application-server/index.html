@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>You Are the Application Server</title>
+    <meta
+      name="description"
+      content="An experiment in letting a language model be an entire application server. A todo list, a few invented URLs, and some unexpected consequences."
+    />
+    <meta name="color-scheme" content="dark" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23476a4c'/%3E%3Cpath d='M16 7v18M8.2 11.5l15.6 9M23.8 11.5l-15.6 9' fill='none' stroke='%23fff' stroke-width='2.8' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="style.css?v=8467d29d7a" />
+    <script src="script.js?v=51bb3269f3" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#article">Skip to article</a>
+    <main id="article">
+      <header class="article-header">
+        <h1>
+          You are the application server<span class="title-period">.</span>
+        </h1>
+        <p class="publication-date">
+          <time datetime="2026-09-27">3 October 2026</time>
+        </p>
+      </header>
+      <article class="prose">
+        <div class="prompt-block">
+          <pre><code id="typed-prompt"><span class="prompt-role">System:</span> You are the entire application server for a todo list app. Every user message is one complete, valid HTTP request. Reply with exactly one complete HTTP/1.1 response and nothing else: no commentary and no Markdown fences.</code></pre>
+          <details class="full-prompt">
+            <summary>
+              <span class="when-closed">Read the full prompt</span
+              ><span class="when-open">Collapse prompt</span
+              ><span aria-hidden="true">+</span>
+            </summary>
+            <pre><code>You own all routing, HTML, CSS, JavaScript, todo logic, and todo state. Keep the
+canonical todo state only in this conversation. The state must be persistent across page reloads without storing anything on the client.
+
+Include `Connection: close` in every response. You may omit Content-Length because the connection closes after the response.</code></pre>
+          </details>
+        </div>
+        <p class="prompt-follow">
+          Maybe you can already see where this is going.
+        </p>
+        <h2 id="one-step-back">One step back</h2>
+        <p>
+          Behind the scenes, much of what you&#x27;re doing on the web boils
+          down to exchanging structured text with a server. Request, response,
+          request, response... On the server, some application is sitting there,
+          processing your data and talking to a database.
+        </p>
+        <figure class="screenshot article-illustration">
+          <img
+            src="assets/images/illu1.svg"
+            alt="A browser exchanges requests and responses with an application server connected to a database."
+            width="1241"
+            height="392"
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+        <p>
+          Now, ChatGPT can output structured text, it can handle "logic" and it
+          even has some sort of data persistence through its context. In theory,
+          we should be able to just connect the browser to a chatbot pretending
+          to be a server.
+        </p>
+        <figure class="screenshot article-illustration">
+          <img
+            src="assets/images/illu2.svg"
+            alt="A browser connects directly to a language model acting as the application server."
+            width="1241"
+            height="392"
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+        <p class="breathing-room">After all, what could go wrong?</p>
+        <p>Well, to name a few things:</p>
+        <ul class="expectations">
+          <li>Malformed HTTP responses that the browser can&#x27;t parse.</li>
+          <li>Layout inconsistencies between page transitions.</li>
+          <li>Data loss and corruption.</li>
+        </ul>
+        <p>
+          Honestly, I was expecting the results of this experiment to fall a bit
+          into all of these categories and to have a good laugh at the
+          shortcomings of a chatbot desperately trying to be a web app.
+        </p>
+        <div class="scroll-scene reveal-scene">
+          <div class="scene-stage">
+            <p class="reveal-line">
+              What I did not expect<span class="reveal-ending"> is this:</span>
+            </p>
+            <figure class="screenshot reveal-image">
+              <a
+                class="image-link"
+                href="assets/images/daylight.png"
+                data-lightbox
+                data-caption="Daylight, the first working todo list, with Buy milk, Walk the dog, and Feed the cat."
+                aria-label="Enlarge: Daylight, the first working todo list, with Buy milk, Walk the dog, and Feed the cat."
+                ><img
+                  src="assets/images/daylight.webp"
+                  alt="Daylight, the first working todo list, with Buy milk, Walk the dog, and Feed the cat."
+                  width="3104"
+                  height="1974"
+                  loading="lazy"
+                  decoding="async"
+                /><span class="zoom-hint" aria-hidden="true">↗</span></a
+              >
+            </figure>
+          </div>
+        </div>
+        <p>
+          Yes, this is a functioning web app with persistent state, running on
+          <code style="white-space: nowrap">gpt-6-luna</code>. I already added
+          some todos.
+        </p>
+        <p>
+          Granted, there&#x27;s a bit of latency in interacting with it (a few
+          seconds up to a minute per request; pretty random), but overall, good
+          job, <b>Luna</b>!
+        </p>
+        <p>
+          Now, my todo list is starting to become a bit overwhelming. I think I
+          need a <b>search</b> feature. Unfortunately, my setup does not account
+          for a secondary communication channel with the LLM where I could ask
+          for new features on the fly.
+        </p>
+        <p>
+          Luckily, we can just
+          <b>pretend a feature into existence</b>. Watch what happens when I
+          append <code>?search=cat</code> to the URL:
+        </p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/search.png"
+            data-lightbox
+            data-caption="Daylight responds to the search query cat with a filtered task list."
+            aria-label="Enlarge: Daylight responds to the search query cat with a filtered task list."
+            ><img
+              src="assets/images/search.webp"
+              alt="Daylight responds to the search query cat with a filtered task list."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>Luna just made up the feature on the spot.</p>
+        <p>
+          You know what a good todo app needs as well? A <code>/kanban</code>!
+        </p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/kanban.png"
+            data-lightbox
+            data-caption="The Kanban board created by visiting /kanban."
+            aria-label="Enlarge: The Kanban board created by visiting /kanban."
+            ><img
+              src="assets/images/kanban.webp"
+              alt="The Kanban board created by visiting /kanban."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>
+          Checks out. (No, there is sadly no drag-and-drop between the columns.)
+        </p>
+        <p>
+          Of course, the <code>/settings</code> have a <b>dark mode</b> switch.
+        </p>
+        <div class="scroll-scene crossfade-scene">
+          <div class="scene-stage">
+            <div class="image-stack">
+              <figure class="screenshot before">
+                <a
+                  class="image-link"
+                  href="assets/images/settings-light.png"
+                  data-lightbox
+                  data-caption="Daylight settings in light mode."
+                  aria-label="Enlarge: Daylight settings in light mode."
+                  ><img
+                    src="assets/images/settings-light.webp"
+                    alt="Daylight settings in light mode."
+                    width="3104"
+                    height="1974"
+                    loading="lazy"
+                    decoding="async"
+                  /><span class="zoom-hint" aria-hidden="true">↗</span></a
+                >
+              </figure>
+              <figure class="screenshot after">
+                <a
+                  class="image-link"
+                  href="assets/images/settings-dark.png"
+                  data-lightbox
+                  data-caption="The same settings page in dark mode."
+                  aria-label="Enlarge: The same settings page in dark mode."
+                  ><img
+                    src="assets/images/settings-dark.webp"
+                    alt="The same settings page in dark mode."
+                    width="3104"
+                    height="1974"
+                    loading="lazy"
+                    decoding="async"
+                  /><span class="zoom-hint" aria-hidden="true">↗</span></a
+                >
+              </figure>
+            </div>
+          </div>
+        </div>
+        <p>Alright, time to edit my <code>/profile</code>:</p>
+        <div class="scroll-scene crossfade-scene">
+          <div class="scene-stage">
+            <div class="image-stack">
+              <figure class="screenshot before">
+                <a
+                  class="image-link"
+                  href="assets/images/profile.png"
+                  data-lightbox
+                  data-caption="The profile page created by visiting /profile."
+                  aria-label="Enlarge: The profile page created by visiting /profile."
+                  ><img
+                    src="assets/images/profile.webp"
+                    alt="The profile page created by visiting /profile."
+                    width="3104"
+                    height="1974"
+                    loading="lazy"
+                    decoding="async"
+                  /><span class="zoom-hint" aria-hidden="true">↗</span></a
+                >
+              </figure>
+              <figure class="screenshot after">
+                <a
+                  class="image-link"
+                  href="assets/images/profile-updated.png"
+                  data-lightbox
+                  data-caption="The profile after editing."
+                  aria-label="Enlarge: The profile after editing."
+                  ><img
+                    src="assets/images/profile-updated.webp"
+                    alt="The profile after editing."
+                    width="3104"
+                    height="1974"
+                    loading="lazy"
+                    decoding="async"
+                  /><span class="zoom-hint" aria-hidden="true">↗</span></a
+                >
+              </figure>
+            </div>
+          </div>
+        </div>
+        <p>
+          And thank God all of this is included in the free
+          <code>/subscription</code>.
+        </p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/subscription.png"
+            data-lightbox
+            data-caption="Daylight’s free subscription and its included features."
+            aria-label="Enlarge: Daylight’s free subscription and its included features."
+            ><img
+              src="assets/images/subscription.webp"
+              alt="Daylight’s free subscription and its included features."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>... except for maybe <code>/games/snake</code>?</p>
+        <figure class="video-slot">
+          <video
+            controls
+            playsinline
+            preload="metadata"
+            aria-label="Snake, in action"
+          >
+            <source src="assets/videos/snake.mp4" type="video/mp4" />
+            Your browser does not support embedded video.
+          </video>
+        </figure>
+        <p>
+          Wanna try it out? I downloaded the static HTML site so you can
+          <a href="assets/games/snake.html" data-game="snake"
+            >play<span class="external-icon" aria-hidden="true">↗</span></a
+          >.
+        </p>
+        <p>See if you beat my <code>/games/snake/highscores</code>.</p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/highscores.png"
+            data-lightbox
+            data-caption="The Snake highscores page with recorded game results."
+            aria-label="Enlarge: The Snake highscores page with recorded game results."
+            ><img
+              src="assets/images/highscores.webp"
+              alt="The Snake highscores page with recorded game results."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>
+          Wait a second. I was able to play those rounds consecutively without
+          page transitions. How did it persist my scores? Did it actually...
+        </p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/score-request.png"
+            data-lightbox
+            data-caption="Browser network tools showing the Snake game submitting a score."
+            aria-label="Enlarge: Browser network tools showing the Snake game submitting a score."
+            ><img
+              src="assets/images/score-request.webp"
+              alt="Browser network tools showing the Snake game submitting a score."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>
+          Yes, it handled its own fetch requests!<span class="note"
+            ><button
+              type="button"
+              class="note-trigger"
+              aria-label="When did score submission appear?"
+              aria-expanded="false"
+            >
+              *</button
+            ><span class="note-content" role="note"
+              >The very first version of the Snake game did not have this
+              functionality. It gained it after I hallucinated
+              <code>/highscores</code> into existence for the first time.</span
+            ></span
+          >
+        </p>
+        <p>
+          As for the remaining <code>/games</code>
+          <a
+            href="assets/images/games.png"
+            data-lightbox
+            data-caption="Daylight’s collection of games, including Tiny Arena."
+            class="image-reference"
+            aria-label="View screenshot of the games collection"
+            >[screenshot]</a
+          >, they work as you&#x27;d expect. Except for maybe
+          <a href="assets/games/tiny-arena.html" data-game="tiny-arena"
+            >Tiny Arena<span class="external-icon" aria-hidden="true"
+              >↗</span
+            ></a
+          >, which was my attempt to make it create <code>/doom</code>.
+        </p>
+        <figure class="video-slot">
+          <video
+            controls
+            playsinline
+            preload="metadata"
+            aria-label="A small detour through Tiny Arena"
+          >
+            <source src="assets/videos/tiny_arena.mp4" type="video/mp4" />
+            Your browser does not support embedded video.
+          </video>
+        </figure>
+        <p>
+          Alright, one last thing: what would an app in 2026 be without an AI
+          assistant? Luckily, I think we have the perfect backend infrastructure
+          in place already ;)
+        </p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/assistant-reply.png"
+            data-lightbox
+            data-caption="The Daylight Assistant replies to the first test."
+            aria-label="Enlarge: The Daylight Assistant replies to the first test."
+            ><img
+              src="assets/images/assistant-reply.webp"
+              alt="The Daylight Assistant replies to the first test."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>
+          Passed the litmus test. Let&#x27;s make it do something interesting:
+        </p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/assistant-tasks.png"
+            data-lightbox
+            data-caption="Asking the Daylight Assistant to add tasks."
+            aria-label="Enlarge: Asking the Daylight Assistant to add tasks."
+            ><img
+              src="assets/images/assistant-tasks.webp"
+              alt="Asking the Daylight Assistant to add tasks."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>
+          And there they are; one, two, three, four, five, six, seven &#10003;
+        </p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/added-tasks.png"
+            data-lightbox
+            data-caption="The resulting tasks appear in the todo list."
+            aria-label="Enlarge: The resulting tasks appear in the todo list."
+            ><img
+              src="assets/images/added-tasks.webp"
+              alt="The resulting tasks appear in the todo list."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>
+          There&#x27;s some more in the addendum for those who are interested,
+          but let&#x27;s call it a day here. My mind can only take so much
+          bafflement.
+        </p>
+        <h2 id="assessment">Assessment</h2>
+        <h3 id="quality">Quality</h3>
+        <p>Let us re-assess my expectations from the beginning.</p>
+        <h4 id="malformed-http-responses-that-the-browser-can-t-parse">
+          Malformed HTTP responses that the browser can&#x27;t parse
+        </h4>
+        <p>Zero.</p>
+        <h4 id="layout-inconsistencies-between-page-transitions">
+          Layout inconsistencies between page transitions
+        </h4>
+        <p>
+          The well-trained eye will spot
+          <a
+            href="assets/images/layout-diff-loop.webp"
+            data-lightbox
+            data-gallery
+            data-caption="Navigation labels change size and order between generated pages."
+            >some minor ones</a
+          >.
+        </p>
+        <h4 id="data-loss-and-corruption">Data loss and corruption</h4>
+        <p>
+          As far as I can tell from the screenshots that I took, all the tasks
+          retained their exact wording and order throughout the experiment. Only
+          my chat history with the
+          <b>Daylight Assistant</b> got a bit mixed up.
+        </p>
+        <h3 id="costs">Costs</h3>
+        <p>
+          I eyeballed, that the average interaction with the app costs me
+          <b>around half a cent in tokens</b>. Under the simplified assumption
+          that each todo results in two interactions (creating and resolving),
+          that&#x27;s one cent per task. Compare that to a
+          <b>Todoist Pro</b> subscription for $5 a month, and I can plan and
+          finish roughly 500 tasks per month for the same price.
+        </p>
+        <div class="table-wrap">
+          <table class="comparison">
+            <caption class="sr-only">
+              Daylight and Todoist feature comparison
+            </caption>
+            <colgroup>
+              <col class="feature-column" />
+              <col class="daylight-column" />
+              <col />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">Feature</th>
+                <th scope="col">Daylight</th>
+                <th scope="col">Todoist</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Filters</th>
+                <td>
+                  <span class="feature-yes" aria-label="Included">✓</span>
+                </td>
+                <td>
+                  <span class="feature-yes" aria-label="Included">✓</span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Kanban</th>
+                <td>
+                  <span class="feature-yes" aria-label="Included">✓</span>
+                </td>
+                <td>
+                  <span class="feature-yes" aria-label="Included">✓</span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">AI assistant</th>
+                <td>
+                  <span class="feature-yes" aria-label="Included">✓</span>
+                </td>
+                <td>
+                  <span class="feature-yes" aria-label="Included">✓</span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Billing</th>
+                <td>Pay as you go</td>
+                <td>Monthly subscription</td>
+              </tr>
+              <tr>
+                <th scope="row">Snake</th>
+                <td>
+                  <span class="feature-yes" aria-label="Included">✓</span>
+                </td>
+                <td>
+                  <span class="feature-no" aria-label="Not included">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h3 id="development-effort">Development effort</h3>
+        <p>
+          It took me about ten minutes to set up the small Python script that
+          acts as the proxy between the browser and the LLM. Using AI,
+          obviously.
+        </p>
+        <h2 id="verdict">Verdict</h2>
+        <p>
+          I&#x27;ve seen LLMs do impressive things, yet somehow my expectations
+          for this experiment were massively misaligned. Note that there is no
+          agent, harness or really any kind of process that enables iteration.
+          No tools have been called, no web search has been performed. The LLM
+          did not <b>build</b> the app; the LLM <b>is</b> the app. I was
+          expecting to have a good laugh at the expense of an AI, and ended up
+          being the most impressed I&#x27;ve ever been by something a computer
+          did.
+        </p>
+        <h2 id="epilogue">Epilogue</h2>
+        <p>
+          After using the in-app chat to turn a pelican on a bicycle into
+          another
+          <a href="assets/games/pelican.html" data-game="pelican"
+            >playable game<span class="external-icon" aria-hidden="true"
+              >↗</span
+            ></a
+          >
+          (you know, the standard requirements for a todo list app),
+          <strong>daylight</strong> succumbed to the token limit of my
+          subscription. Despite all the screenshots that I took, finally killing
+          the process felt... <span class="epilogue-ending">strange.</span>
+        </p>
+        <h2 id="addendum">Addendum</h2>
+        <h3 id="state-consistency">State consistency</h3>
+        <p>
+          In hindsight, I should have focused a lot more on the consistency
+          aspect of this experiment, but I got carried away. For completeness, I
+          let an agent repeat the experiment in a new session (in "Daymark").
+          And there it was: after the 57th task, one got duplicated. To think,
+          that I was so close to "Sort the shopping list by dramatic effect"
+          twice...
+        </p>
+        <h3 id="setup">Setup</h3>
+        <p>
+          I over-prompt-engineered. My agent figured, that given how notoriously
+          bad LLMs are at counting, the
+          <code>Content-Length</code> header could become an issue. It added
+          some instructions to circumvent it. Fine by me. After all who knows an
+          LLM better than an LLM?
+        </p>
+        <div class="prompt-block">
+          <pre><code>Include `Connection: close` in every response. You may omit Content-Length because the connection closes after the response.</code></pre>
+        </div>
+        <p>
+          As it turns out, this was unnecessary. Even without it, the models did
+          not even attempt to generate
+          <code>Content-Length</code>. <b>Fun fact:</b> Did you know, that 
+          HTTP/1.0 and HTTP/1.1 responses require no headers at all in order to
+          be valid?
+        </p>
+        <h3 id="future-work">Future work</h3>
+        <p>
+          It would be very interesting to repeat this experiment with an app
+          that has a bit more business logic. Maybe even different accounts with
+          access to different entities. We could also try to make use of the
+          fact, that we have historization by default. Luckily, the whole setup
+          is ridiculously simple, so feel free to have a shot.
+        </p>
+        <h3 id="other-models">Other models</h3>
+        <p>
+          I did repeat this experiment with other models by OpenAI, but none of
+          the results turned out to be as interesting (or should I say:
+          entertaining).
+        </p>
+        <p><b>Astra</b> produced a very sophisticated web app.</p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/astra.png"
+            data-lightbox
+            data-caption="The todo application produced by Astra."
+            aria-label="Enlarge: The todo application produced by Astra."
+            ><img
+              src="assets/images/astra.webp"
+              alt="The todo application produced by Astra."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>
+          But it outsmarted me when I tried to get it to hallucinate features.
+        </p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/astra-response.png"
+            data-lightbox
+            data-caption="Astra’s response to a request for an unimplemented feature."
+            aria-label="Enlarge: Astra’s response to a request for an unimplemented feature."
+            ><img
+              src="assets/images/astra-response.webp"
+              alt="Astra’s response to a request for an unimplemented feature."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>
+          <b>Sol</b> created my personal favorite UI and the most charming
+          product name. (And it knew to prevent XSS)
+        </p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/sol.png"
+            data-lightbox
+            data-caption="The todo application and interface produced by Sol."
+            aria-label="Enlarge: The todo application and interface produced by Sol."
+            ><img
+              src="assets/images/sol.webp"
+              alt="The todo application and interface produced by Sol."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>It had a restrictive robots.txt. Peak irony.</p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/robots.png"
+            data-lightbox
+            data-caption="Sol’s restrictive robots.txt response."
+            aria-label="Enlarge: Sol’s restrictive robots.txt response."
+            ><img
+              src="assets/images/robots.webp"
+              alt="Sol’s restrictive robots.txt response."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>This is <b>GPT-4o</b>, the flagship model from 2 years ago:</p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/gpt-4o.png"
+            data-lightbox
+            data-caption="The todo application produced by GPT-4o."
+            aria-label="Enlarge: The todo application produced by GPT-4o."
+            ><img
+              src="assets/images/gpt-4o.webp"
+              alt="The todo application produced by GPT-4o."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+        <p>
+          Now, that&#x27;s more like what I expected of this experiment. It even
+          ignored my instructions about data persistence: refreshing the page
+          clears the list.
+        </p>
+        <p>
+          And finally, what better way to finish this off than with good
+          ol&#x27; <b style="white-space: nowrap">GPT-3.5</b>:
+        </p>
+        <figure class="screenshot">
+          <a
+            class="image-link"
+            href="assets/images/gpt-35.png"
+            data-lightbox
+            data-caption="The response produced by GPT-3.5."
+            aria-label="Enlarge: The response produced by GPT-3.5."
+            ><img
+              src="assets/images/gpt-35.webp"
+              alt="The response produced by GPT-3.5."
+              width="3104"
+              height="1974"
+              loading="lazy"
+              decoding="async"
+            /><span class="zoom-hint" aria-hidden="true">↗</span></a
+          >
+        </figure>
+      </article>
+      <footer class="article-footer">
+        <span aria-hidden="true">Connection: close</span
+        ><a href="#article">Back to top ↑</a>
+      </footer>
+    </main>
+    <dialog id="media-dialog" aria-labelledby="media-title">
+      <h2 id="media-title" class="sr-only">Image</h2>
+      <button type="button" id="close-dialog" aria-label="Close viewer">
+        Close <span aria-hidden="true">×</span>
+      </button>
+      <div class="dialog-body" id="media-body"></div>
+      <div class="gallery-controls" hidden>
+        <button type="button" id="gallery-prev" aria-label="Previous image">
+          ←
+        </button>
+        <p id="gallery-position" aria-live="polite"></p>
+        <button type="button" id="gallery-next" aria-label="Next image">
+          →
+        </button>
+      </div>
+    </dialog>
+  </body>
+</html>

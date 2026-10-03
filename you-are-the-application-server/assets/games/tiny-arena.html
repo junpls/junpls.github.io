@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tiny Arena — Daylight</title>
+<style>
+:root{color-scheme:dark;--bg:#171b17;--panel:#222822;--line:#343c34;--ink:#e8ece5;--muted:#a0a99e;--green:#8eaf91}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;padding:20px;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:grid;place-items:center;-webkit-font-smoothing:antialiased}
+.wrap{width:min(760px,100%)}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:750;letter-spacing:-.04em}
+.mark{display:grid;place-items:center;width:29px;height:29px;border-radius:9px;background:#476a4c;color:#fff}
+a{color:var(--green);text-decoration:none;font-size:13px}
+a:hover{text-decoration:underline}
+.card{padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:17px;box-shadow:0 16px 45px #0003}
+.heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:15px}
+.kicker{color:var(--green);font-size:11px;font-weight:750;letter-spacing:.14em;text-transform:uppercase}
+h1{margin:4px 0 0;font-size:29px;letter-spacing:-.05em}
+.stats{display:flex;gap:8px}
+.stat{min-width:76px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:#1a211a;text-align:center}
+.stat span{display:block;color:var(--muted);font-size:9px;letter-spacing:.1em}
+.stat strong{font-size:17px}
+.game{position:relative}
+canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;border:1px solid #394438;border-radius:10px;background:#111713;image-rendering:pixelated}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;border-radius:10px;background:rgba(10,14,11,.65);text-align:center}
+.overlay[hidden]{display:none}
+.overlay-inner{padding:18px}
+.overlay h2{margin:0 0 7px;font-size:24px}
+.overlay p{margin:0 0 14px;color:#c2cbbc;font-size:13px}
+button{font:inherit;cursor:pointer}
+.primary{border:0;border-radius:9px;padding:10px 17px;background:#476a4c;color:white;font-size:13px;font-weight:700}
+.primary:hover{background:#557c5b}
+.below{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px}
+#status{color:var(--muted);font-size:12px}
+.controls{margin:13px 0 0;color:var(--muted);font-size:11px;line-height:1.6}
+kbd{padding:2px 5px;border:1px solid #465046;border-radius:4px;background:#1a211a;color:#d8dfd3;font:inherit}
+.touch{display:none;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:12px}
+.touch button{height:39px;border:1px solid #465446;border-radius:8px;background:#2b392b;color:var(--ink);font-size:15px;touch-action:manipulation}
+@media(max-width:600px){body{padding:12px}.card{padding:14px}.heading{align-items:flex-start}.stats{gap:5px}.stat{min-width:56px;padding:6px}.touch{display:grid}}
+</style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+</head>
+<body>
+<main class="wrap">
+<header class="top">
+  <div class="brand"><span class="mark" aria-hidden="true">✳</span> daylight</div>
+  
+</header>
+<section class="card" aria-label="Tiny Arena game">
+  <div class="heading">
+    <div><div class="kicker">A tiny break</div><h1>Tiny Arena</h1></div>
+    <div class="stats">
+      <div class="stat"><span>SCORE</span><strong id="score">325</strong></div>
+      <div class="stat"><span>ENERGY</span><strong id="energy">100</strong></div>
+    </div>
+  </div>
+  <div class="game">
+    <canvas id="screen" width="640" height="360" aria-label="Retro first-person arena game"></canvas>
+    <div class="overlay" id="overlay" hidden="">
+      <div class="overlay-inner">
+        <h2 id="overlay-title">Ready, ranger?</h2>
+        <p id="overlay-copy">Explore the arena, collect glowing cells, and tag the bots.</p>
+        <button class="primary" id="start" type="button">Play again</button>
+      </div>
+    </div>
+  </div>
+  <div class="below">
+    <span id="status" aria-live="polite">Nice tag! Keep exploring.</span>
+    <button class="primary" id="pause" type="button">Pause</button>
+  </div>
+  <div class="touch" aria-label="Touch controls">
+    <button type="button" data-key="ArrowLeft" aria-label="Turn left">↶</button>
+    <button type="button" data-key="w" aria-label="Move forward">↑</button>
+    <button type="button" data-key=" " aria-label="Fire">●</button>
+    <button type="button" data-key="s" aria-label="Move backward">↓</button>
+    <button type="button" data-key="ArrowRight" aria-label="Turn right">↷</button>
+  </div>
+  <p class="controls"><kbd>W</kbd>/<kbd>S</kbd> move · <kbd>A</kbd>/<kbd>D</kbd> strafe · <kbd>←</kbd>/<kbd>→</kbd> turn · <kbd>Space</kbd> tag a bot · <kbd>P</kbd> pause</p>
+</section>
+</main>
+<script>
+(()=>{
+const canvas=document.getElementById('screen'),ctx=canvas.getContext('2d');
+const scoreEl=document.getElementById('score'),energyEl=document.getElementById('energy');
+const status=document.getElementById('status'),overlay=document.getElementById('overlay');
+const title=document.getElementById('overlay-title'),copy=document.getElementById('overlay-copy');
+const startBtn=document.getElementById('start'),pauseBtn=document.getElementById('pause');
+const map=["111111111111","100000000001","101100110101","100000000001","100110011001","100000000001","101100110101","100000000001","111111111111"];
+const originalCells=[{x:2.5,y:1.5},{x:9.5,y:1.5},{x:5.5,y:3.5},{x:2.5,y:7.5},{x:9.5,y:7.5}];
+let player,bots,cells,score,energy,state='ready',last=0,flash=0;
+const keys=new Set();
+const wall=(x,y)=>!map[Math.floor(y)]||map[Math.floor(y)][Math.floor(x)]!=='0';
+function reset(){
+  player={x:1.7,y:1.7,a:0};
+  bots=[{x:8.4,y:1.7,alive:true},{x:5.5,y:5.4,alive:true},{x:2.3,y:6.7,alive:true}];
+  cells=originalCells.map(p=>({...p}));score=0;energy=100;state='ready';flash=0;
+  scoreEl.textContent='0';energyEl.textContent='100';status.textContent='Ready when you are.';
+  title.textContent='Ready, ranger?';copy.textContent='Explore the arena, collect glowing cells, and tag the bots.';
+  startBtn.textContent='Start game';pauseBtn.textContent='Pause';overlay.hidden=false;draw();
+}
+function cast(angle){
+  let d=0;
+  while(d<16){d+=.025;if(wall(player.x+Math.cos(angle)*d,player.y+Math.sin(angle)*d))break}
+  return d;
+}
+function draw(){
+  const w=canvas.width,h=canvas.height;
+  ctx.fillStyle='#202a27';ctx.fillRect(0,0,w,h/2);
+  const grad=ctx.createLinearGradient(0,h/2,0,h);
+  grad.addColorStop(0,'#484038');grad.addColorStop(1,'#171613');
+  ctx.fillStyle=grad;ctx.fillRect(0,h/2,w,h/2);
+  const depth=new Float32Array(w);
+  for(let x=0;x<w;x++){
+    const ray=player.a+(x/w-.5)*1.12,d=cast(ray),corrected=d*Math.cos(ray-player.a);
+    depth[x]=corrected;
+    const wallH=Math.min(h*1.6,h/(corrected*.72)),top=(h-wallH)/2,shade=Math.max(28,140-corrected*13);
+    ctx.fillStyle=`rgb(${shade},${shade*.78|0},${shade*.57|0})`;
+    ctx.fillRect(x,top,1,wallH);
+  }
+  const objects=[...cells.map(p=>({...p,type:'cell'})),...bots.filter(b=>b.alive).map(b=>({...b,type:'bot'}))]
+    .sort((a,b)=>Math.hypot(player.x-b.x,player.y-b.y)-Math.hypot(player.x-a.x,player.y-a.y));
+  objects.forEach(o=>{
+    const dx=o.x-player.x,dy=o.y-player.y,dist=Math.hypot(dx,dy);
+    let angle=Math.atan2(dy,dx)-player.a;
+    while(angle>Math.PI)angle-=Math.PI*2;
+    while(angle< -Math.PI)angle+=Math.PI*2;
+    if(Math.abs(angle)>.72||dist<.15)return;
+    const sx=w/2+Math.tan(angle)*w*.72,size=Math.min(h*1.1,h/(dist*.85));
+    if(depth[Math.max(0,Math.min(w-1,sx|0))]<dist*.88)return;
+    if(o.type==='cell'){
+      ctx.save();ctx.shadowColor='#c8e678';ctx.shadowBlur=18;ctx.fillStyle='#c8e678';
+      ctx.beginPath();ctx.arc(sx,h/2,size*.12,0,Math.PI*2);ctx.fill();ctx.restore();
+    }else{
+      ctx.fillStyle='#b95c58';ctx.fillRect(sx-size*.19,h/2-size*.32,size*.38,size*.53);
+      ctx.fillStyle='#e8b37b';ctx.beginPath();ctx.arc(sx,h/2-size*.34,size*.14,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff2c9';ctx.fillRect(sx-size*.075,h/2-size*.38,size*.04,size*.035);
+      ctx.fillRect(sx+size*.035,h/2-size*.38,size*.04,size*.035);
+    }
+  });
+  if(flash>0){ctx.fillStyle='rgba(255,220,130,.12)';ctx.fillRect(0,0,w,h)}
+  ctx.fillStyle='rgba(0,0,0,.32)';
+  ctx.fillRect(w/2-1,h/2-7,2,14);ctx.fillRect(w/2-7,h/2-1,14,2);
+}
+function move(dx,dy){
+  const nx=player.x+dx,ny=player.y+dy;
+  if(!wall(nx,player.y))player.x=nx;
+  if(!wall(player.x,ny))player.y=ny;
+}
+function act(dt){
+  const turn=(keys.has('ArrowRight')||keys.has('d')||keys.has('D')?1:0)-(keys.has('ArrowLeft')||keys.has('a')||keys.has('A')?1:0);
+  player.a+=turn*dt*2.4;
+  const forward=(keys.has('w')||keys.has('W')||keys.has('ArrowUp')?1:0)-(keys.has('s')||keys.has('S')||keys.has('ArrowDown')?1:0);
+  const strafe=(keys.has('D')?1:0)-(keys.has('A')?1:0);
+  move((Math.cos(player.a)*forward-Math.sin(player.a)*strafe)*dt*2.2,(Math.sin(player.a)*forward+Math.cos(player.a)*strafe)*dt*2.2);
+  for(let i=cells.length-1;i>=0;i--){
+    if(Math.hypot(player.x-cells[i].x,player.y-cells[i].y)<.38){cells.splice(i,1);score+=25;scoreEl.textContent=score}
+  }
+  bots.forEach(b=>{if(b.alive&&Math.hypot(player.x-b.x,player.y-b.y)<.55)energy=Math.max(0,energy-dt*9)});
+  energyEl.textContent=Math.ceil(energy);flash=Math.max(0,flash-dt);
+  if(energy<=0)finish(false);
+  else if(!cells.length&&bots.every(b=>!b.alive))finish(true);
+}
+function fire(){
+  if(state!=='playing')return;
+  flash=.12;
+  const target=bots.filter(b=>b.alive).map(b=>({b,d:Math.hypot(b.x-player.x,b.y-player.y),a:Math.atan2(b.y-player.y,b.x-player.x)-player.a}))
+    .filter(o=>Math.abs(Math.atan2(Math.sin(o.a),Math.cos(o.a)))<.12&&o.d<7&&cast(Math.atan2(o.b.y-player.y,o.b.x-player.x))>=o.d-.3)
+    .sort((a,b)=>a.d-b.d)[0];
+  if(target){target.b.alive=false;score+=100;scoreEl.textContent=score;status.textContent='Nice tag! Keep exploring.'}
+  draw();
+}
+function finish(win){
+  state='over';overlay.hidden=false;
+  title.textContent=win?'Arena clear!':'Out of energy!';
+  copy.textContent=win?'Great run — all cells collected and bots tagged.':'Take a breather and try another run.';
+  startBtn.textContent='Play again';status.textContent=win?'You cleared the arena!':'Run ended.';
+}
+function loop(now){
+  if(state!=='playing')return;
+  const dt=Math.min((now-last)/1000,.05);last=now;act(dt);draw();
+  if(state==='playing')requestAnimationFrame(loop);
+}
+function begin(){
+  if(state==='over')reset();
+  state='playing';overlay.hidden=true;status.textContent='Arena live — have fun!';
+  startBtn.textContent='Play again';pauseBtn.textContent='Pause';last=performance.now();
+  requestAnimationFrame(loop);
+}
+function pause(){
+  if(state==='playing'){
+    state='paused';status.textContent='Paused';overlay.hidden=false;
+    title.textContent='Paused';copy.textContent='Take your time. Resume when you’re ready.';
+    startBtn.textContent='Resume';pauseBtn.textContent='Resume';
+  }else if(state==='paused'){
+    begin();
+  }
+}
+document.addEventListener('keydown',e=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
+  keys.add(e.key);
+  if(e.key===' '){if(state==='ready')begin();else fire()}
+  if(e.key==='Enter'&&(state==='ready'||state==='over'))begin();
+  if(e.key==='p'||e.key==='P')pause();
+});
+document.addEventListener('keyup',e=>keys.delete(e.key));
+window.addEventListener('blur',()=>keys.clear());
+document.querySelectorAll('[data-key]').forEach(btn=>{
+  const key=btn.dataset.key;
+  btn.addEventListener('pointerdown',e=>{e.preventDefault();keys.add(key);if(state==='ready')begin();if(key===' ')fire()});
+  ['pointerup','pointercancel','pointerleave'].forEach(type=>btn.addEventListener(type,()=>keys.delete(key)));
+});
+startBtn.addEventListener('click',()=>state==='playing'?pause():begin());
+pauseBtn.addEventListener('click',pause);
+canvas.addEventListener('click',fire);
+reset();
+})();
+</script>
+
+<script>document.addEventListener("keydown", event => { if (event.key === "Escape") parent.postMessage({type:"close-article-game"}, "*"); });</script>
+</body></html>
