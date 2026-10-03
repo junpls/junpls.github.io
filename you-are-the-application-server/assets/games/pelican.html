@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pelican Path — Daylight</title>
+<style>
+:root{color-scheme:dark;--bg:#171b17;--panel:#222822;--line:#343c34;--ink:#e8ece5;--muted:#a0a99e;--green:#8eaf91;--sun:#f2bf61}
+*{box-sizing:border-box}
+body{min-height:100vh;margin:0;padding:22px;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:grid;place-items:center;-webkit-font-smoothing:antialiased}
+.wrap{width:min(760px,100%)}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:750;letter-spacing:-.04em}
+.mark{display:grid;place-items:center;width:29px;height:29px;border-radius:9px;background:#476a4c;color:#fff}
+a{color:var(--green);font-size:13px;text-decoration:none}
+a:hover{text-decoration:underline}
+.card{padding:21px;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 16px 45px #0003}
+.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.kicker{color:var(--green);font-size:11px;font-weight:750;letter-spacing:.14em;text-transform:uppercase}
+h1{margin:5px 0 0;font-size:30px;letter-spacing:-.05em}
+.score{text-align:right}
+.score span{display:block;color:var(--muted);font-size:10px;letter-spacing:.1em}
+.score strong{font-size:24px}
+.arena{position:relative}
+canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;border:1px solid #394438;border-radius:12px;background:#f4ead6}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;border-radius:12px;background:rgba(18,25,21,.53);text-align:center}
+.overlay[hidden]{display:none}
+.overlay-inner{padding:18px}
+.overlay h2{margin:0 0 7px;font-size:25px;letter-spacing:-.04em}
+.overlay p{max-width:360px;margin:0 0 15px;color:#e0e6d8;font-size:13px;line-height:1.55}
+button{font:inherit;cursor:pointer}
+.primary,.jump{border:0;border-radius:9px;background:#476a4c;color:#fff;font-size:13px;font-weight:700}
+.primary{padding:10px 17px}
+.primary:hover,.jump:hover{background:#557c5b}
+.below{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px}
+#status{color:var(--muted);font-size:12px}
+.jump{display:none;padding:10px 18px;touch-action:manipulation}
+.help{margin:14px 0 0;color:var(--muted);font-size:12px;line-height:1.6;text-align:center}
+@media(max-width:600px){body{padding:13px}.card{padding:15px}.jump{display:inline-block}.help{margin-top:10px}}
+</style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true">✳</span> daylight</div>
+    
+  </header>
+  <section class="card" aria-label="Pelican Path game">
+    <div class="heading">
+      <div><div class="kicker">A tiny break</div><h1>Pelican Path</h1></div>
+      <div class="score"><span>DISTANCE</span><strong id="score">2353</strong></div>
+    </div>
+    <div class="arena">
+      <canvas id="game" width="720" height="405" aria-label="Pelican cycling along a path and jumping over rocks"></canvas>
+      <div class="overlay" id="overlay" hidden="">
+        <div class="overlay-inner">
+          <h2 id="overlayTitle">Ready for a ride?</h2>
+          <p id="overlayCopy">Your pelican is pedalling along the seaside. Press Space or Jump to hop over rocks.</p>
+          <button class="primary" id="start" type="button">Start ride</button>
+        </div>
+      </div>
+    </div>
+    <div class="below">
+      <span id="status" aria-live="polite">Nice day for a ride!</span>
+      <button class="jump" id="jump" type="button">↑ Jump</button>
+    </div>
+    <p class="help">Press <strong>Space</strong> or <strong>↑</strong> to jump. Avoid the rocks and ride as far as you can.</p>
+  </section>
+</main>
+<script>
+(()=>{
+  const canvas=document.getElementById('game');
+  const ctx=canvas.getContext('2d');
+  const scoreEl=document.getElementById('score');
+  const statusEl=document.getElementById('status');
+  const overlay=document.getElementById('overlay');
+  const titleEl=document.getElementById('overlayTitle');
+  const copyEl=document.getElementById('overlayCopy');
+  const startBtn=document.getElementById('start');
+  const jumpBtn=document.getElementById('jump');
+  const W=720,H=405,ground=315;
+  let state='ready',lastTime=0,elapsed=0,distance=0,speed=290,jumpY=0,jumpV=0;
+  let obstacles=[],cloudOffset=0,roadOffset=0,nextRock=1.25;
+  const birdX=158;
+
+  function reset(){
+    state='ready';lastTime=0;elapsed=0;distance=0;speed=290;
+    jumpY=0;jumpV=0;obstacles=[];cloudOffset=0;roadOffset=0;nextRock=1.25;
+    scoreEl.textContent='0';
+    statusEl.textContent='Ready when you are.';
+    titleEl.textContent='Ready for a ride?';
+    copyEl.textContent='Your pelican is pedalling along the seaside. Press Space or Jump to hop over rocks.';
+    startBtn.textContent='Start ride';
+    overlay.hidden=false;
+    draw();
+  }
+  function start(){
+    if(state==='running')return;
+    if(state==='over')reset();
+    state='running';overlay.hidden=true;
+    statusEl.textContent='Nice day for a ride!';
+    lastTime=performance.now();
+    requestAnimationFrame(frame);
+  }
+  function jump(){
+    if(state==='ready'){start();return}
+    if(state!=='running'||jumpY>0)return;
+    jumpV=625;
+  }
+  function end(){
+    if(state!=='running')return;
+    state='over';overlay.hidden=false;
+    titleEl.textContent='Ride over!';
+    copyEl.textContent='You rode '+Math.floor(distance)+' metres. Ready to take another run?';
+    startBtn.textContent='Ride again';
+    statusEl.textContent='Rock in the road — give it another go.';
+  }
+  function roundedRect(x,y,w,h,r,color){
+    ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();
+  }
+  function drawBike(){
+    const wheelY=ground-17-jumpY;
+    const bob=state==='running'&&jumpY===0?Math.sin(elapsed*16)*2:0;
+    const by=wheelY-55+bob;
+    ctx.save();
+    ctx.translate(birdX,0);
+    ctx.strokeStyle='#254c4b';ctx.lineWidth=6;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();ctx.arc(-40,wheelY,27,0,Math.PI*2);ctx.arc(43,wheelY,27,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-40,wheelY);ctx.lineTo(-4,wheelY-42);ctx.lineTo(12,wheelY);ctx.lineTo(-40,wheelY);
+    ctx.moveTo(-4,wheelY-42);ctx.lineTo(4,wheelY);ctx.lineTo(43,wheelY);ctx.lineTo(12,wheelY);
+    ctx.moveTo(-4,wheelY-42);ctx.lineTo(-16,wheelY-52);
+    ctx.moveTo(43,wheelY);ctx.lineTo(52,wheelY-48);ctx.lineTo(66,wheelY-48);
+    ctx.stroke();
+    ctx.lineWidth=5;
+    ctx.beginPath();ctx.moveTo(-40,wheelY);ctx.lineTo(-24,wheelY+2);ctx.moveTo(12,wheelY);ctx.lineTo(25,wheelY+3);ctx.stroke();
+    // Legs pedal in opposite rhythm.
+    const pedal=Math.sin(elapsed*13);
+    ctx.strokeStyle='#e2a45e';ctx.lineWidth=7;
+    ctx.beginPath();ctx.moveTo(-2,by+43);ctx.lineTo(-12+pedal*12,wheelY-5);ctx.lineTo(-24+pedal*12,wheelY+2);
+    ctx.moveTo(5,by+43);ctx.lineTo(14-pedal*12,wheelY+7);ctx.lineTo(25-pedal*12,wheelY+3);ctx.stroke();
+    // Pelican body and neck.
+    ctx.fillStyle='#e8f0dc';ctx.strokeStyle='#254c4b';ctx.lineWidth=4;
+    ctx.beginPath();ctx.ellipse(0,by+31,27,19,-.12,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(13,by+25);ctx.lineTo(23,by-2);ctx.quadraticCurveTo(27,by-17,16,by-23);
+    ctx.lineTo(35,by-24);ctx.quadraticCurveTo(53,by-6,36,by+6);ctx.lineTo(25,by+31);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.ellipse(17,by-27,17,14,-.15,0,Math.PI*2);ctx.fill();ctx.stroke();
+    // Long bill and pouch.
+    ctx.fillStyle='#ed9a47';ctx.strokeStyle='#b96737';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(30,by-30);ctx.lineTo(73,by-25);ctx.lineTo(34,by-17);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(33,by-18);ctx.quadraticCurveTo(52,by+1,67,by-24);ctx.quadraticCurveTo(55,by-10,35,by-25);ctx.closePath();ctx.fill();ctx.stroke();
+    // Wing, eye, and a little feather.
+    ctx.fillStyle='#c5d8b9';ctx.strokeStyle='#8da98e';ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(-6,by+29,17,8,.3,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#243b39';ctx.beginPath();ctx.arc(23,by-30,3.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(24,by-31,1.2,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#d28748';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(8,by-37);ctx.lineTo(0,by-46);ctx.stroke();
+    ctx.restore();
+  }
+  function drawRock(r){
+    const y=ground-r.h;
+    ctx.fillStyle='#59645d';ctx.strokeStyle='#34433a';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(r.x,y+r.h);ctx.lineTo(r.x+4,y+13);ctx.lineTo(r.x+18,y);ctx.lineTo(r.x+35,y+7);ctx.lineTo(r.x+r.w,y+22);ctx.lineTo(r.x+r.w-3,y+r.h);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.18)';
+    ctx.beginPath();ctx.moveTo(r.x+8,y+14);ctx.lineTo(r.x+19,y+4);ctx.lineTo(r.x+25,y+11);ctx.closePath();ctx.fill();
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // Warm sky and distant sea.
+    const sky=ctx.createLinearGradient(0,0,0,H);
+    sky.addColorStop(0,'#d9eef0');sky.addColorStop(.55,'#f4ead6');sky.addColorStop(1,'#f4ead6');
+    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#f2bf61';ctx.beginPath();ctx.arc(592,76,35,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#a8d5cc';ctx.fillRect(0,194,W,93);
+    ctx.fillStyle='#75b8ad';
+    for(let i=0;i<5;i++){
+      const yy=212+i*17;
+      ctx.beginPath();ctx.moveTo(0,yy);
+      for(let x=0;x<=W;x+=40)ctx.lineTo(x,yy+Math.sin(x*.025+i+elapsed)*4);
+      ctx.lineTo(W,287);ctx.lineTo(0,287);ctx.closePath();ctx.fill();
+    }
+    // Clouds drift by.
+    ctx.fillStyle='rgba(255,255,255,.75)';
+    for(let i=0;i<3;i++){
+      const x=((i*270-cloudOffset+W+100)%(W+180))-70,y=65+(i%2)*38;
+      ctx.beginPath();ctx.arc(x,y,17,0,Math.PI*2);ctx.arc(x+21,y-8,23,0,Math.PI*2);ctx.arc(x+46,y,16,0,Math.PI*2);ctx.fill();
+    }
+    // Coastal verge and road.
+    ctx.fillStyle='#8eb99b';ctx.fillRect(0,286,W,16);
+    ctx.fillStyle='#d9c89f';ctx.fillRect(0,302,W,H-302);
+    ctx.fillStyle='#fff5df';
+    for(let x=-70+roadOffset;x<W;x+=120)roundedRect(x,352,53,5,3,'#fff5df');
+    // Small path-side grass tufts.
+    ctx.strokeStyle='#628e72';ctx.lineWidth=3;
+    for(let i=0;i<8;i++){
+      const x=((i*112-roadOffset*.8+W)%(W+30))-15;
+      ctx.beginPath();ctx.moveTo(x,300);ctx.lineTo(x-5,290);ctx.moveTo(x,300);ctx.lineTo(x+4,289);ctx.stroke();
+    }
+    obstacles.forEach(drawRock);
+    drawBike();
+    // HUD progress stripe.
+    if(state==='running'){
+      ctx.fillStyle='rgba(37,76,75,.15)';ctx.fillRect(0,0,W,5);
+      ctx.fillStyle='#476a4c';ctx.fillRect(0,0,Math.min(W,(distance%100)*W/100),5);
+    }
+  }
+  function frame(now){
+    if(state!=='running')return;
+    const dt=Math.min((now-lastTime)/1000,.04);lastTime=now;elapsed+=dt;
+    speed=Math.min(520,290+distance*.12);
+    distance+=speed*dt/10;
+    scoreEl.textContent=String(Math.floor(distance));
+    roadOffset=(roadOffset+speed*dt)%120;
+    cloudOffset=(cloudOffset+speed*dt*.12)%(W+180);
+    if(jumpY>0||jumpV>0){
+      jumpY+=jumpV*dt;jumpV-=1550*dt;
+      if(jumpY<=0){jumpY=0;jumpV=0}
+    }
+    nextRock-=dt;
+    if(nextRock<=0){
+      obstacles.push({x:W+12,w:43+Math.random()*13,h:27+Math.random()*12});
+      nextRock=1.15+Math.random()*1.15-Math.min(.4,distance/900);
+    }
+    obstacles.forEach(r=>r.x-=speed*dt);
+    obstacles=obstacles.filter(r=>r.x+r.w>-10);
+    const pelicanBox={left:birdX+40, right:birdX+69, bottom:ground-44-jumpY, top:ground-105-jumpY};
+    for(const r of obstacles){
+      const rockBox={left:r.x+5,right:r.x+r.w-4,top:ground-r.h+7,bottom:ground};
+      if(pelicanBox.right>rockBox.left&&pelicanBox.left<rockBox.right&&pelicanBox.bottom>rockBox.top&&pelicanBox.top<rockBox.bottom){
+        end();return;
+      }
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+  function onKey(e){
+    if(e.code==='Space'||e.code==='ArrowUp'){
+      e.preventDefault();
+      if(state==='ready')start();
+      jump();
+    }else if(e.code==='Enter'&&(state==='ready'||state==='over')){
+      start();
+    }
+  }
+  document.addEventListener('keydown',onKey);
+  startBtn.addEventListener('click',start);
+  jumpBtn.addEventListener('pointerdown',e=>{e.preventDefault();jump()});
+  canvas.addEventListener('pointerdown',()=>{if(state==='ready')start();else jump()});
+  reset();
+})();
+</script>
+
+<script>document.addEventListener("keydown", event => { if (event.key === "Escape") parent.postMessage({type:"close-article-game"}, "*"); });</script>
+</body></html>

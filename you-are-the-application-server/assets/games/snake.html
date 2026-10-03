@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snake — Daylight</title>
+<style>
+:root{color-scheme:dark;--bg:#171b17;--panel:#222822;--line:#343c34;--ink:#e8ece5;--muted:#a0a99e;--green:#8eaf91;--accent:#c8e678}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;padding:20px;background:var(--bg);color:var(--ink);font-family:system-ui,sans-serif;display:grid;place-items:center}
+.wrap{width:min(540px,100%)}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:750;font-size:18px;letter-spacing:-.04em}
+.mark{display:grid;place-items:center;width:29px;height:29px;border-radius:9px;background:#476a4c;color:white}
+.links{display:flex;gap:16px}
+a{color:var(--green);text-decoration:none;font-size:13px}
+a:hover{text-decoration:underline}
+.card{padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 16px 45px #0003}
+.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.kicker{color:var(--green);font-size:11px;font-weight:750;letter-spacing:.14em;text-transform:uppercase}
+h1{margin:5px 0 0;font-size:30px;letter-spacing:-.05em}
+.scorebox{text-align:right}
+.scorebox span{display:block;color:var(--muted);font-size:11px}
+.scorebox strong{font-size:24px}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1;border:1px solid #394438;border-radius:12px;background:#1a211a;touch-action:none}
+.below{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:15px;color:var(--muted);font-size:12px}
+button{font:inherit;cursor:pointer}
+.control{border:1px solid #465446;border-radius:9px;padding:9px 14px;background:#2b392b;color:var(--ink);font-size:13px;font-weight:650}
+.control:hover{background:#354735}
+.help{text-align:center;margin:17px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+.touch{display:none;grid-template-columns:repeat(3,42px);grid-template-rows:repeat(2,38px);gap:5px;justify-content:center;margin:16px auto 0}
+.touch button{border:1px solid #465446;border-radius:8px;background:#2b392b;color:var(--ink);font-size:17px;touch-action:manipulation}
+.touch .up{grid-column:2;grid-row:1}.touch .left{grid-column:1;grid-row:2}.touch .down{grid-column:2;grid-row:2}.touch .right{grid-column:3;grid-row:2}
+@media(max-width:600px){body{padding:14px}.card{padding:17px}.touch{display:grid}.help{margin-top:10px}}
+</style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+</head>
+<body>
+<main class="wrap">
+<header class="top">
+  <div class="brand"><span class="mark" aria-hidden="true">✳</span> daylight</div>
+  <div class="links"></div>
+</header>
+<section class="card" aria-label="Snake game">
+  <div class="heading">
+    <div><div class="kicker">A tiny break</div><h1>Snake</h1></div>
+    <div class="scorebox"><span>SCORE</span><strong id="score">0</strong></div>
+  </div>
+  <canvas id="game" width="400" height="400" aria-label="Snake game board"></canvas>
+  <div class="below">
+    <span id="status" aria-live="polite">Ready when you are.</span>
+    <button class="control" id="start" type="button">Start game</button>
+  </div>
+  <div class="touch" aria-label="Touch controls">
+    <button class="up" type="button" data-dir="up" aria-label="Up">↑</button>
+    <button class="left" type="button" data-dir="left" aria-label="Left">←</button>
+    <button class="down" type="button" data-dir="down" aria-label="Down">↓</button>
+    <button class="right" type="button" data-dir="right" aria-label="Right">→</button>
+  </div>
+  <p class="help">Use the arrow keys or WASD to steer. Eat the glowing fruit and avoid the walls—and yourself.</p>
+</section>
+</main>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const scoreEl=document.getElementById('score'),status=document.getElementById('status'),startBtn=document.getElementById('start');
+const cells=20,size=20;
+let snake,food,dir,next,score,timer,running=false,over=false,recorded=false;
+function placeFood(){do{food={x:Math.floor(Math.random()*cells),y:Math.floor(Math.random()*cells)}}while(snake.some(p=>p.x===food.x&&p.y===food.y))}
+function reset(){clearInterval(timer);snake=[{x:9,y:10},{x:8,y:10},{x:7,y:10}];dir={x:1,y:0};next={x:1,y:0};score=0;running=false;over=false;recorded=false;scoreEl.textContent='0';placeFood();startBtn.textContent='Start game';status.textContent='Ready when you are.';draw()}
+function draw(){
+  ctx.fillStyle='#1a211a';ctx.fillRect(0,0,400,400);ctx.strokeStyle='rgba(180,205,160,.055)';
+  for(let i=1;i<cells;i++){ctx.beginPath();ctx.moveTo(i*size,0);ctx.lineTo(i*size,400);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*size);ctx.lineTo(400,i*size);ctx.stroke()}
+  ctx.save();ctx.shadowColor='#c8e678';ctx.shadowBlur=18;ctx.fillStyle='#c8e678';ctx.beginPath();ctx.arc((food.x+.5)*size,(food.y+.5)*size,6.4,0,Math.PI*2);ctx.fill();ctx.restore();
+  snake.forEach((p,i)=>{ctx.fillStyle=i===0?'#b9d98f':'#739875';ctx.beginPath();ctx.roundRect(p.x*size+2.5,p.y*size+2.5,15,15,5);ctx.fill()});
+  if(over){ctx.fillStyle='rgba(15,20,15,.72)';ctx.fillRect(0,0,400,400);ctx.fillStyle='#f0f3eb';ctx.textAlign='center';ctx.font='700 25px system-ui';ctx.fillText('Game over',200,195);ctx.font='14px system-ui';ctx.fillText('Press Start to play again',200,223)}
+}
+function finish(){
+  clearInterval(timer);running=false;over=true;status.textContent='Game over — well played!';startBtn.textContent='Play again';draw();
+  recorded=true;
+}
+function tick(){
+  dir=next;const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+  if(head.x<0||head.y<0||head.x>=cells||head.y>=cells||snake.some(p=>p.x===head.x&&p.y===head.y)){finish();return}
+  snake.unshift(head);if(head.x===food.x&&head.y===food.y){score++;scoreEl.textContent=score;placeFood()}else snake.pop();draw()
+}
+function start(){if(running)return;if(over)reset();running=true;status.textContent='Game on — keep going!';startBtn.textContent='Pause';timer=setInterval(tick,125)}
+function pause(){clearInterval(timer);running=false;status.textContent='Paused';startBtn.textContent='Resume'}
+function steer(name){const d={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}}[name];if(!d)return;if(d.x!==-dir.x||d.y!==-dir.y)next=d;if(!running&&!over)start()}
+document.addEventListener('keydown',e=>{
+  const key={ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down',ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right'}[e.key];
+  if(key){e.preventDefault();steer(key)}
+  if(e.key===' '){e.preventDefault();running?pause():start()}
+});
+document.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>steer(b.dataset.dir)));
+startBtn.addEventListener('click',()=>running?pause():start());
+reset();
+})();
+</script>
+
+<script>document.addEventListener("keydown", event => { if (event.key === "Escape") parent.postMessage({type:"close-article-game"}, "*"); });</script>
+</body></html>
